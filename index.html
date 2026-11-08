@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>홋카이도 렌터카 여행</title>
+<meta name="description" content="삿포로·오타루 3박 4일 맛집 동선 지도 (2026.12.3–12.6)">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://kkhgold.github.io/sapporo-drive/">
+<meta property="og:title" content="홋카이도 렌터카 여행">
+<meta property="og:description" content="부천 출발 3박 4일 · 비에이 청의호수 · 오타루 · 요이치 니카 위스키, 날짜별 렌터카 동선">
+<meta property="og:image" content="https://kkhgold.github.io/sapporo-drive/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: 지도 전면 + 오른쪽 일정 패널 (모바일은 지도 위, 패널 아래) */
+:root{
+  --bg:#f3f6f9; --panel:#ffffff; --fg:#17202b; --muted:#5c6b7a; --line:#dbe3ea;
+  --accent:#c2410c;      /* 등불 주황: 선택/진행 */
+  --walk:#0f766e;        /* 도보 */
+  --subway:#2563eb;      /* 지하철 */
+  --jr:#15803d;          /* JR */
+  --car:#7c3aed;         /* 버스/택시 */
+  --display:"Do Hyeon","Noto Sans KR",system-ui,sans-serif;
+  --body:"Noto Sans KR",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0e141b; --panel:#151d26; --fg:#e6edf3; --muted:#93a3b3; --line:#26323f;
+  --accent:#fb923c; --walk:#2dd4bf; --subway:#60a5fa; --jr:#4ade80; --car:#a78bfa;
+  color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.55 var(--body);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.app{display:grid;grid-template-columns:1fr 380px;height:100%}
+#map{height:100%;min-height:300px;background:var(--bg)}
+aside{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-width:0;overflow:hidden}
+header{padding:18px max(16px,env(safe-area-inset-right,0px)) 12px 20px;border-bottom:1px solid var(--line)}
+h1{font:400 28px/1.15 var(--display);margin:0;letter-spacing:.01em;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.tabs{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
+.tab{flex:1 1 0;min-width:64px;border:1px solid var(--line);background:transparent;color:var(--fg);
+  border-radius:8px;padding:7px 4px;font:500 13px var(--body);cursor:pointer;line-height:1.25}
+.tab small{display:block;color:var(--muted);font-size:11px;font-weight:400}
+.tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab[aria-selected="true"] small{color:#fff;opacity:.85}
+.tab:focus-visible,.btn:focus-visible,.stop:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.controls{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;padding:6px 12px;font:500 13px var(--body);cursor:pointer}
+.btn.primary{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.btn.kakao{background:#fee500;color:#191600;border-color:#fee500;font-weight:700}
+.speed{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+.stats{display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--muted)}
+.stats b{font:500 15px var(--mono);color:var(--fg);display:block;font-variant-numeric:tabular-nums}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:18px;height:0;border-top:3px solid}
+.list{overflow-y:auto;padding:8px max(16px,env(safe-area-inset-right,0px)) 24px 12px;flex:1}
+.stop{display:grid;grid-template-columns:28px 1fr;gap:10px;padding:10px 8px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.stop:hover{background:var(--bg)}
+.stop.active{border-color:var(--accent);background:var(--bg)}
+.stop.done .num{background:var(--fg);color:var(--panel)}
+.num{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:500 12px var(--mono);
+  border:1.5px solid var(--fg);color:var(--fg);background:var(--panel)}
+.stop h3{margin:0;font-size:14.5px;font-weight:700}
+.stop .meta{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.stop p{margin:3px 0 0;font-size:13px;color:var(--muted)}
+.leg{margin:2px 0 2px 21px;padding:2px 0 2px 19px;border-left:2px dashed var(--line);font-size:12px;color:var(--muted)}
+.leg b{font-weight:500}
+.note{font-size:11.5px;color:var(--muted);padding:10px 8px 0;border-top:1px solid var(--line);margin-top:10px}
+/* map markers */
+.pin{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:600 12px var(--mono);
+  background:var(--panel);color:var(--fg);border:2px solid var(--fg);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.pin.on{background:var(--accent);border-color:#fff;color:#fff}
+.mover{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:18px;
+  background:#fff;border:3px solid var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.leaflet-popup-content{font:13px/1.5 var(--body)}
+.leaflet-popup-content b{font-size:14px}
+.leaflet-container{font-family:var(--body)}
+.tide{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--fg);background:var(--bg);border:1px solid var(--accent);border-radius:8px;padding:8px 10px}
+.dark-tiles{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
+@media (max-width:820px){
+  /* 모바일: 페이지 전체가 스크롤, 지도는 위에 고정 */
+  html,body{height:auto}
+  .app{display:block;height:auto}
+  #map{position:sticky;top:0;height:46vh;z-index:5;border-bottom:1px solid var(--line)}
+  aside{border-left:0;overflow:visible}
+  .list{overflow:visible;flex:none}
+  .stop{scroll-margin-top:calc(46vh + 12px)}
+  h1{font-size:24px}
+  header{padding-left:max(16px,env(safe-area-inset-left,0px))}
+  .list{padding-left:max(16px,env(safe-area-inset-left,0px))}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="map" role="region" aria-label="홋카이도 렌터카 여행 지도"></div>
+  <aside>
+    <header>
+      <h1>홋카이도 렌터카 여행</h1>
+      <div class="sub">부천 출발 3박 4일 · 숙소: 이온몰 삿포로 핫사무 근처</div>
+      <div class="tide"><b>❄️ 겨울 운전 주의</b><br>눈길·빙판이 많고 오후 4시 전후로 해가 져요. 렌터카는 스노우 타이어·4WD로 예약하고, 비에이 왕복은 밝을 때 끝내는 게 좋아요. 시간은 예시라 항공편이 정해지면 맞춰서 바꾸세요.</div>
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="controls">
+        <button class="btn primary" id="play">▶ 동선 재생</button>
+        <button class="btn" id="reset">처음으로</button>
+        <button class="btn kakao" id="share">카톡으로 공유</button>
+        <label class="speed" for="speed">속도
+          <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+        </label>
+      </div>
+      <div class="stats">
+        <div><b id="sStops">–</b>방문지</div>
+        <div><b id="sWalk">–</b>운전 거리</div>
+        <div><b id="sWalkMin">–</b>운전 시간</div>
+      </div>
+      <div class="legend">
+        <span><i style="border-color:var(--walk);border-top-style:dashed"></i>도보</span>
+        <span><i style="border-color:var(--subway)"></i>자동차</span>
+        <span><i style="border-color:var(--jr);border-top-style:dotted"></i>비행기</span>
+      </div>
+    </header>
+    <div class="list" id="list"></div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ---------- 데이터 (좌표는 근사값) ----------
+const MODE = {
+  car:   {label:"자동차",icon:"🚗", color:"--subway",dash:null,  kmh:44},
+  plane: {label:"비행기",icon:"✈️", color:"--jr",dash:"2 10", kmh:600},
+  walk:  {label:"도보",  icon:"🚶", color:"--walk",  dash:"2 8", kmh:4.5},
+  subway:{label:"지하철",icon:"🚇", color:"--subway",dash:null,  kmh:30},
+  jr:    {label:"JR",    icon:"🚆", color:"--jr",    dash:null,  kmh:60},
+  bus:   {label:"투어버스",icon:"🚌", color:"--car",   dash:"8 6", kmh:55},
+  taxi:  {label:"택시",  icon:"🚕", color:"--car",   dash:"8 6", kmh:22},
+};
+const JR_AIRPORT = [[43.0390,141.4740],[42.9860,141.5630],[42.8820,141.5780],[42.8280,141.6520]];
+const JR_OTARU   = [[43.0790,141.2900],[43.1230,141.2400],[43.1550,141.1300],[43.1640,141.0600],[43.1880,141.0200]];
+
+
+const HOTEL = [43.0945,141.2895];
+const AIR_IN  = [[42.83,141.66],[42.95,141.56],[43.03,141.45],[43.075,141.36]];   // 공항 → 삿포로 (도오 자동차도)
+const TO_BIEI = [[43.10,141.36],[43.20,141.76],[43.55,141.90],[43.77,142.36],[43.62,142.45]]; // 삿포로 → 아사히카와 → 비에이
+const TO_OTARU= [[43.13,141.20],[43.17,141.08]];
+const DAYS = [
+ { date:"1일차", dow:"출국", title:"부천 → 인천공항 → 신치토세 → 숙소",
+   stops:[
+    {n:"부천 출발", ll:[37.5035,126.7660], t:"07:00", d:"인천공항까지 약 50분"},
+    {n:"인천공항", ll:[37.4490,126.4510], t:"08:00", d:"체크인 · 수속 · 면세", by:"car"},
+    {n:"신치토세 공항 · 렌터카 픽업", ll:[42.7875,141.6812], t:"13:00", d:"입국 후 렌터카 셔틀로 영업소 이동 → 차량 픽업 (스노우 타이어 확인)", by:"plane", via:[[38.8,131.0]]},
+    {n:"이온몰 삿포로 핫사무", ll:[43.0955,141.2875], t:"15:30", d:"장보기 · 저녁 (발한 8조 12초메, JR 핫사무역 도보 4분)", by:"car", via:AIR_IN, food:true},
+    {n:"숙소 체크인", ll:HOTEL, t:"18:00", d:"이온몰 핫사무 근처", by:"walk"},
+   ]},
+ { date:"2일차", dow:"비에이", title:"사계채 언덕 · 청의 호수 · 흰수염 폭포 · 돈키호테",
+   stops:[
+    {n:"숙소 출발", ll:HOTEL, t:"07:30", d:"비에이까지 약 2시간 40분 (아사히카와 경유)"},
+    {n:"사계채 언덕", ll:[43.5385,142.4800], t:"10:30", d:"겨울엔 눈 덮인 언덕 · 스노우 액티비티", by:"car", via:TO_BIEI},
+    {n:"청의 호수", ll:[43.4930,142.6140], t:"11:40", d:"푸른 연못 · 겨울엔 눈 + 야간 라이트업", by:"car"},
+    {n:"흰수염 폭포", ll:[43.4797,142.6380], t:"12:20", d:"시로가네 온천 다리 위에서 보는 푸른 폭포 · 근처에서 점심", by:"car", food:true},
+    {n:"돈키호테 삿포로 (타누키코지)", ll:[43.0571,141.3545], t:"16:30", d:"쇼핑 · 시내 주차장 이용", by:"car", via:TO_BIEI.slice().reverse(), food:true},
+    {n:"숙소 복귀", ll:HOTEL, t:"19:30", d:"", by:"car", via:[[43.075,141.33]]},
+   ]},
+ { date:"3일차", dow:"오타루", title:"오타루 · 요이치 니카 위스키 · 로피아",
+   stops:[
+    {n:"숙소 출발", ll:HOTEL, t:"09:00", d:"오타루까지 약 40분"},
+    {n:"오타루 운하", ll:[43.1995,140.9950], t:"09:45", d:"운하 주변 주차 · 사카이마치 거리 · 르타오 · 오르골당", by:"car", via:TO_OTARU, food:true},
+    {n:"니카 위스키 요이치 증류소", ll:[43.1878,140.7867], t:"12:30", d:"증류소 견학 (사전 예약 확인) · 시음은 운전자 제외!", by:"car", via:[[43.19,140.90]]},
+    {n:"로피아 (삿포로)", ll:[43.0800,141.3150], t:"15:30", d:"삿포로에 4개 매장. 가까운 매장 위치 확인 후 내비 설정 (지도 위치는 대략)", by:"car", via:[[43.19,140.90],[43.17,141.08],[43.13,141.20]], food:true},
+    {n:"숙소 복귀", ll:HOTEL, t:"17:30", d:"", by:"car"},
+   ]},
+ { date:"4일차", dow:"귀국", title:"렌터카 반납 → 인천공항 → 부천",
+   stops:[
+    {n:"숙소 체크아웃", ll:HOTEL, t:"08:30", d:"공항까지 약 1시간 10분 · 반납 전 주유(만탱)"},
+    {n:"신치토세 공항 · 렌터카 반납", ll:[42.7875,141.6812], t:"10:00", d:"영업소에서 반납 → 셔틀로 공항 · 출국 2시간 전 도착", by:"car", via:AIR_IN.slice().reverse()},
+    {n:"인천공항", ll:[37.4490,126.4510], t:"16:00", d:"", by:"plane", via:[[38.8,131.0]]},
+    {n:"부천 도착", ll:[37.5035,126.7660], t:"17:30", d:"집으로 복귀", by:"car"},
+   ]},
+];
+
+// ---------- 유틸 ----------
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const R = 6371;
+function dist(a,b){const toR=x=>x*Math.PI/180;const dLa=toR(b[0]-a[0]),dLo=toR(b[1]-a[1]);
+  const h=Math.sin(dLa/2)**2+Math.cos(toR(a[0]))*Math.cos(toR(b[0]))*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+function pathLen(p){let s=0;for(let i=1;i<p.length;i++)s+=dist(p[i-1],p[i]);return s;}
+// 삿포로는 바둑판 도로 → 도보는 ㄱ자 경로로
+function buildPath(a,b,s){
+  if(s.via) return [a,...s.via,b];
+  if(s.by==="walk"){const corner=[a[0],b[1]];return dist(a,corner)>0.03&&dist(corner,b)>0.03?[a,corner,b]:[a,b];}
+  return [a,b];
+}
+function at(p,cum,f){const L=cum[cum.length-1]*f;let i=1;while(i<cum.length-1&&cum[i]<L)i++;
+  const seg=cum[i]-cum[i-1]||1,t=(L-cum[i-1])/seg;return [p[i-1][0]+(p[i][0]-p[i-1][0])*t,p[i-1][1]+(p[i][1]-p[i-1][1])*t,i];}
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ---------- 지도 ----------
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+const map = L.map("map",{zoomControl:true}).setView([43.06,141.35],13);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{
+  maxZoom:19, className: dark ? "dark-tiles" : "",
+  attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+const layer = L.layerGroup().addTo(map);
+
+let day=0, legs=[], pins=[], mover=null, anim=null, playing=false, legIdx=0, legT=0;
+
+function prepDay(i){
+  const st=DAYS[i].stops; legs=[];
+  for(let k=1;k<st.length;k++){
+    const s=st[k], p=buildPath(st[k-1].ll,s.ll,s), cum=[0];
+    for(let j=1;j<p.length;j++)cum.push(cum[j-1]+dist(p[j-1],p[j]));
+    legs.push({from:k-1,to:k,mode:s.by,path:p,cum,km:cum[cum.length-1]});
+  }
+}
+function pinIcon(n,on){return L.divIcon({className:"",html:`<div class="pin${on?" on":""}">${n}</div>`,iconSize:[26,26],iconAnchor:[13,13]});}
+function moverIcon(m){return L.divIcon({className:"",html:`<div class="mover">${MODE[m].icon}</div>`,iconSize:[34,34],iconAnchor:[17,17]});}
+
+function render(i){
+  stop(); day=i; layer.clearLayers(); prepDay(i);
+  document.querySelectorAll(".tab").forEach((t,k)=>t.setAttribute("aria-selected",k===i));
+  const st=DAYS[i].stops;
+  // 흐린 전체 경로 미리보기
+  legs.forEach(l=>L.polyline(l.path,{color:css(MODE[l.mode].color),weight:3,opacity:.22,dashArray:MODE[l.mode].dash}).addTo(layer));
+  pins=st.map((s,k)=>L.marker(s.ll,{icon:pinIcon(k+1,false),zIndexOffset:100})
+    .bindPopup(`<b>${k+1}. ${s.n}</b><br>${s.t}${s.d?" · "+s.d:""}`).addTo(layer));
+  map.fitBounds(L.latLngBounds(st.map(s=>s.ll)).pad(.12));
+  // 통계
+  const walk=legs.filter(l=>l.mode==="car").reduce((a,l)=>a+l.km*1.25,0);
+  document.getElementById("sStops").textContent=st.length+"곳";
+  document.getElementById("sWalk").textContent="약 "+Math.round(walk)+" km";
+  {const m=Math.round(walk/55*60);document.getElementById("sWalkMin").textContent=m>=60?`약 ${Math.floor(m/60)}시간 ${m%60}분`:`약 ${m}분`;}
+  // 리스트
+  const list=document.getElementById("list"); list.innerHTML="";
+  const h=document.createElement("div"); h.className="sub"; h.style.padding="6px 8px 4px";
+  h.innerHTML=`<b style="color:var(--fg)">${DAYS[i].date} (${DAYS[i].dow})</b> · ${DAYS[i].title}`; list.appendChild(h);
+  st.forEach((s,k)=>{
+    if(k>0){const l=legs[k-1],m=MODE[l.mode];const mins=Math.max(1,Math.round(l.km/m.kmh*60));
+      const d=document.createElement("div");d.className="leg";d.style.borderLeftColor=css(m.color);
+      d.style.borderLeftStyle=l.mode==="walk"?"dashed":"solid";
+      d.innerHTML=`${m.icon} <b>${m.label}</b> ${l.km<1?Math.round(l.km*1000)+" m":l.km.toFixed(1)+" km"} · 약 ${mins}분`;list.appendChild(d);}
+    const el=document.createElement("div"); el.className="stop"; el.tabIndex=0; el.id="stop"+k;
+    el.innerHTML=`<div class="num">${k+1}</div><div><h3>${s.n}${s.food?' <span style="color:var(--accent);font-weight:500;font-size:12px">식사·쇼핑</span>':""}</h3>
+      <div class="meta">${s.t}</div>${s.d?`<p>${s.d}</p>`:""}</div>`;
+    const go=()=>{map.flyTo(s.ll,Math.max(map.getZoom(),15),{duration:.8});pins[k].openPopup();};
+    el.onclick=go; el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go();}};
+    list.appendChild(el);
+  });
+  const note=document.createElement("div");note.className="note";
+  note.textContent="좌표·시간은 근사값이에요. 겨울엔 눈길이라 표시된 시간보다 더 걸려요.";
+  list.appendChild(note);
+  mark(0);
+}
+function mark(k,done){
+  document.querySelectorAll(".stop").forEach((e,j)=>{e.classList.toggle("active",j===k);e.classList.toggle("done",j<k);});
+  pins.forEach((p,j)=>p.setIcon(pinIcon(j+1,j===k)));
+  const el=document.getElementById("stop"+k); if(el) el.scrollIntoView({block:"nearest",behavior:reduce?"auto":"smooth"});
+}
+
+// ---------- 애니메이션 ----------
+let drawn=null;
+function legDuration(l){ // 화면에서 보기 좋은 시간 (ms)
+  const base = (l.mode==="plane"||l.km>30)?2800 : l.mode==="walk"?Math.min(2400,700+l.km*2200) : 1600;
+  return base / +document.getElementById("speed").value;
+}
+function startLeg(){
+  const l=legs[legIdx];
+  drawn=L.polyline([l.path[0]],{color:css(MODE[l.mode].color),weight:l.mode==="walk"?4:5,opacity:.95,dashArray:MODE[l.mode].dash,lineCap:"round"}).addTo(layer);
+  if(!mover) mover=L.marker(l.path[0],{icon:moverIcon(l.mode),zIndexOffset:1000}).addTo(layer);
+  else mover.setIcon(moverIcon(l.mode));
+  if(l.mode==="jr"||l.km>2) map.flyToBounds(L.latLngBounds(l.path).pad(.25),{duration:.6});
+  else if(map.getZoom()<14) map.flyToBounds(L.latLngBounds(l.path).pad(1.2),{maxZoom:16,duration:.6});
+  else if(!map.getBounds().pad(-.15).contains(l.path[l.path.length-1])) map.panTo(l.path[l.path.length-1]);
+}
+function frame(ts){
+  if(!playing) return;
+  const l=legs[legIdx];
+  if(frame.last==null) frame.last=ts;
+  legT += (ts-frame.last)/legDuration(l); frame.last=ts;
+  const f=Math.min(1,legT), pt=at(l.path,l.cum,f);
+  drawn.setLatLngs([...l.path.slice(0,pt[2]),[pt[0],pt[1]]]);
+  mover.setLatLng([pt[0],pt[1]]);
+  if(f>=1){
+    drawn.setLatLngs(l.path); mark(l.to);
+    legIdx++; legT=0;
+    if(legIdx>=legs.length){ finish(); return; }
+    frame.last=null; playing=false;
+    setTimeout(()=>{ if(anim==="run"){playing=true;startLeg();requestAnimationFrame(frame);} }, 650/ +document.getElementById("speed").value);
+    return;
+  }
+  requestAnimationFrame(frame);
+}
+function play(){
+  const btn=document.getElementById("play");
+  if(anim==="run"){ anim="pause"; playing=false; btn.textContent="▶ 계속"; return; }
+  if(legIdx>=legs.length || anim==null){ render(day); legIdx=0; legT=0; }
+  btn.textContent="❚❚ 일시정지";
+  if(reduce){ // 애니메이션 최소화: 한 번에 그리기
+    legs.forEach(l=>L.polyline(l.path,{color:css(MODE[l.mode].color),weight:4,dashArray:MODE[l.mode].dash}).addTo(layer));
+    legIdx=legs.length; mark(DAYS[day].stops.length-1); finish(); return;
+  }
+  anim="run"; playing=true; frame.last=null;
+  if(legT===0) startLeg();
+  requestAnimationFrame(frame);
+}
+function finish(){ anim="done"; playing=false; document.getElementById("play").textContent="↻ 다시 재생";
+  document.querySelectorAll(".stop").forEach(e=>e.classList.add("done")); }
+function stop(){ anim=null; playing=false; mover=null; legIdx=0; legT=0; const b=document.getElementById("play"); if(b) b.textContent="▶ 동선 재생"; }
+
+// ---------- UI ----------
+const tabs=document.getElementById("tabs");
+DAYS.forEach((d,i)=>{const b=document.createElement("button");b.className="tab";b.setAttribute("role","tab");
+  b.innerHTML=`Day ${i+1}<small>${d.date} ${d.dow}</small>`;b.onclick=()=>{render(i);setTimeout(play,500);};tabs.appendChild(b);});
+document.getElementById("play").onclick=play;
+document.getElementById("reset").onclick=()=>render(day);
+document.getElementById("share").onclick=async()=>{
+  const b=document.getElementById("share"), url="https://kkhgold.github.io/sapporo-drive/";
+  const data={title:"홋카이도 렌터카 여행",text:"홋카이도 렌터카 여행 동선",url};
+  if(navigator.share){try{await navigator.share(data);}catch(e){} return;}
+  try{await navigator.clipboard.writeText(url);b.textContent="링크 복사됨 · 카톡에 붙여넣기";}
+  catch(e){prompt("이 링크를 복사해서 카톡에 붙여넣으세요",url);}
+  setTimeout(()=>b.textContent="카톡으로 공유",2500);
+};
+let initial=0; const h=location.hash.match(/^#day([1-4])$/); if(h) initial=+h[1]-1;
+render(initial);
+setTimeout(play,900);
+</script>
+</body>
+</html>
